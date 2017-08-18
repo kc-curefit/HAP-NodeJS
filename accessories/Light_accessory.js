@@ -2,9 +2,21 @@ var Accessory = require('../').Accessory;
 var Service = require('../').Service;
 var Characteristic = require('../').Characteristic;
 var uuid = require('../').uuid;
+var firebase = require('firebase');
+var app = firebase.initializeApp({
+  apiKey: "AIzaSyApNWTLZsPW0tzGzi9WU3hOng0Aavtk92s",
+  authDomain: "raspberry-home-7aabe.firebaseapp.com",
+  databaseURL: "https://raspberry-home-7aabe.firebaseio.com",
+  projectId: "raspberry-home-7aabe",
+  storageBucket: "raspberry-home-7aabe.appspot.com",
+  messagingSenderId: "214628616290"
+});
+var database = firebase.database();
+var switch1Status = firebase.database().ref('/switchStatus/switch1');
+
 
 var LightController = {
-  name: "Simple Light", //name of accessory
+  name: "Hall Light", //name of accessory
   pincode: "031-45-154",
   username: "FA:3C:ED:5A:1A:1A", // MAC like address used by HomeKit to differentiate accessories. 
   manufacturer: "HAP-NodeJS", //manufacturer (optional)
@@ -18,50 +30,60 @@ var LightController = {
 
   outputLogs: false, //output logs
 
-  setPower: function(status) { //set power of accessory
-    if(this.outputLogs) console.log("Turning the '%s' %s", this.name, status ? "on" : "off");
+  setPower: function (status) { //set power of accessory
+    if (this.outputLogs) console.log("Turning the '%s' %s", this.name, status ? "on" : "off");
+    switch1Status.set(status)
     this.power = status;
   },
 
-  getPower: function() { //get power of accessory
-    if(this.outputLogs) console.log("'%s' is %s.", this.name, this.power ? "on" : "off");
+  getPower: function () { //get power of accessory
+    if (this.outputLogs) console.log("'%s' is %s.", this.name, this.power ? "on" : "off");
     return this.power;
   },
 
-  setBrightness: function(brightness) { //set brightness
-    if(this.outputLogs) console.log("Setting '%s' brightness to %s", this.name, brightness);
+  setBrightness: function (brightness) { //set brightness
+    if (this.outputLogs) console.log("Setting '%s' brightness to %s", this.name, brightness);
     this.brightness = brightness;
   },
 
-  getBrightness: function() { //get brightness
-    if(this.outputLogs) console.log("'%s' brightness is %s", this.name, this.brightness);
+  getBrightness: function () { //get brightness
+    if (this.outputLogs) console.log("'%s' brightness is %s", this.name, this.brightness);
     return this.brightness;
   },
 
-  setSaturation: function(saturation) { //set brightness
-    if(this.outputLogs) console.log("Setting '%s' saturation to %s", this.name, saturation);
+  setSaturation: function (saturation) { //set brightness
+    if (this.outputLogs) console.log("Setting '%s' saturation to %s", this.name, saturation);
     this.saturation = saturation;
   },
 
-  getSaturation: function() { //get brightness
-    if(this.outputLogs) console.log("'%s' saturation is %s", this.name, this.saturation);
+  getSaturation: function () { //get brightness
+    if (this.outputLogs) console.log("'%s' saturation is %s", this.name, this.saturation);
     return this.saturation;
   },
 
-  setHue: function(hue) { //set brightness
-    if(this.outputLogs) console.log("Setting '%s' hue to %s", this.name, hue);
+  setHue: function (hue) { //set brightness
+    if (this.outputLogs) console.log("Setting '%s' hue to %s", this.name, hue);
     this.hue = hue;
   },
 
-  getHue: function() { //get hue
-    if(this.outputLogs) console.log("'%s' hue is %s", this.name, this.hue);
+  getHue: function () { //get hue
+    if (this.outputLogs) console.log("'%s' hue is %s", this.name, this.hue);
     return this.hue;
   },
 
-  identify: function() { //identify the accessory
-    if(this.outputLogs) console.log("Identify the '%s'", this.name);
+  identify: function () { //identify the accessory
+    if (this.outputLogs) console.log("Identify the '%s'", this.name);
   }
 }
+
+switch1Status.on('value', function (snapshot) {
+  console.log("switch1 value changed to " + snapshot.val())
+  if (snapshot.val() === true) {
+    LightController.power = true
+  } else {
+    LightController.power = false
+  }
+});
 
 // Generate a consistent UUID for our light Accessory that will remain the same even when
 // restarting our server. We use the `uuid.generate` helper function to create a deterministic
@@ -78,12 +100,12 @@ lightAccessory.pincode = LightController.pincode;
 // set some basic properties (these values are arbitrary and setting them is optional)
 lightAccessory
   .getService(Service.AccessoryInformation)
-    .setCharacteristic(Characteristic.Manufacturer, LightController.manufacturer)
-    .setCharacteristic(Characteristic.Model, LightController.model)
-    .setCharacteristic(Characteristic.SerialNumber, LightController.serialNumber);
+  .setCharacteristic(Characteristic.Manufacturer, LightController.manufacturer)
+  .setCharacteristic(Characteristic.Model, LightController.model)
+  .setCharacteristic(Characteristic.SerialNumber, LightController.serialNumber);
 
 // listen for the "identify" event for this Accessory
-lightAccessory.on('identify', function(paired, callback) {
+lightAccessory.on('identify', function (paired, callback) {
   LightController.identify();
   callback();
 });
@@ -93,7 +115,7 @@ lightAccessory.on('identify', function(paired, callback) {
 lightAccessory
   .addService(Service.Lightbulb, LightController.name) // services exposed to the user should have "names" like "Light" for this case
   .getCharacteristic(Characteristic.On)
-  .on('set', function(value, callback) {
+  .on('set', function (value, callback) {
     LightController.setPower(value);
 
     // Our light is synchronous - this value has been successfully set
@@ -105,7 +127,7 @@ lightAccessory
   })
   // We want to intercept requests for our current power state so we can query the hardware itself instead of
   // allowing HAP-NodeJS to return the cached Characteristic.value.
-  .on('get', function(callback) {
+  .on('get', function (callback) {
     callback(null, LightController.getPower());
   });
 
@@ -121,11 +143,11 @@ lightAccessory
 lightAccessory
   .getService(Service.Lightbulb)
   .addCharacteristic(Characteristic.Brightness)
-  .on('set', function(value, callback) {
+  .on('set', function (value, callback) {
     LightController.setBrightness(value);
     callback();
   })
-  .on('get', function(callback) {
+  .on('get', function (callback) {
     callback(null, LightController.getBrightness());
   });
 
@@ -133,11 +155,11 @@ lightAccessory
 lightAccessory
   .getService(Service.Lightbulb)
   .addCharacteristic(Characteristic.Saturation)
-  .on('set', function(value, callback) {
+  .on('set', function (value, callback) {
     LightController.setSaturation(value);
     callback();
   })
-  .on('get', function(callback) {
+  .on('get', function (callback) {
     callback(null, LightController.getSaturation());
   });
 
@@ -145,10 +167,10 @@ lightAccessory
 lightAccessory
   .getService(Service.Lightbulb)
   .addCharacteristic(Characteristic.Hue)
-  .on('set', function(value, callback) {
+  .on('set', function (value, callback) {
     LightController.setHue(value);
     callback();
   })
-  .on('get', function(callback) {
+  .on('get', function (callback) {
     callback(null, LightController.getHue());
   });
